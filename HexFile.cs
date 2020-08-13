@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -8,11 +9,12 @@ namespace DotHex
 {
     public class Hex
     {
-        private HexFileType _hexFileType;
-        private string _hexFilename;
+        private readonly HexFileType _hexFileType;
+        private readonly string _hexFilename;
 
         private const string StartCode = ":";
         private const string SpecialRecAdr = "0000";
+        private const int Offset = 9;
 
         public Hex(string hexFilename, HexFileType hexFileType = HexFileType.Hex386)
         {
@@ -23,47 +25,60 @@ namespace DotHex
         public int FindAbsAdrLineNumber(string hexAdr)
         {
             var targetLine = 1;
-            
+
             if (_hexFileType == HexFileType.Hex386)
             {
-                if (hexAdr.Length == 4)
+                switch (hexAdr.Length)
                 {
-                }
-                if (hexAdr.Length == 8)
-                {
-                    var extAdr = hexAdr.Substring(0, 4);
-                    var lineAdr = hexAdr.Substring(4, 4);
-                    var adrLine = HexLine(SpecialRecAdr, RecordType.ExtendedLinearAddress, extAdr);
-                    
-                    var extAdrLine = 1;
-                    
-                    var lineCtr = 1;
-                    foreach (var line in File.ReadLines(_hexFilename))
+                    case 4:
                     {
-                        if (line == adrLine)
+                        var lineCtr = 1;
+                        foreach (var line in File.ReadLines(_hexFilename))
                         {
-                            extAdrLine = lineCtr;
-                            break;
-                        }
-
-                        lineCtr++;
-                    }
-
-                    lineCtr = 1;
-                    foreach (var line in File.ReadLines(_hexFilename))
-                    {
-                        if (lineCtr < extAdrLine)
-                        {
+                            var record = new RecordLine(line);
+                            if (record.Address == hexAdr)
+                                return lineCtr;
                             lineCtr++;
-                            continue;
-                        }
-                        if (lineCtr > extAdrLine && line.Substring(3, 4) == lineAdr && line.Substring(7, 2) == RecordType.Data)
-                        {
-                            targetLine = lineCtr;
-                            break;
                         }
 
-                        lineCtr++;
+                        break;
+                    }
+                    case 8:
+                    {
+                        var extendedAddress = hexAdr.Substring(0, 4);
+                        var lineAdr = hexAdr.Substring(4, 4);
+                        var extAdrLine = GenerateHexLine(SpecialRecAdr, RecordType.ExtendedLinearAddress, extendedAddress);
+
+                        var extAdrLineNumber = 1;
+
+                        var lineCtr = 1;
+                        var foundFlag = false;
+                        foreach (var line in File.ReadLines(_hexFilename))
+                        {
+                            // Find the line describing line extension
+                            if (line == extAdrLine)
+                            {
+                                extAdrLineNumber = lineCtr;
+                                foundFlag = true;
+                            }
+
+                            // Continue to find the address
+                            if (foundFlag)
+                            {
+                                var record = new RecordLine(line);
+                                if (record.Address == lineAdr && record.RecordType == RecordType.Data)
+                                {
+                                    targetLine = extAdrLineNumber;
+                                    break;
+                                }
+
+                                extAdrLineNumber++;
+                            }
+
+                            lineCtr++;
+                        }
+
+                        break;
                     }
                 }
             }
@@ -71,48 +86,61 @@ namespace DotHex
             return targetLine;
         }
 
-        public static byte StringToHex(string value)
+
+        private class RecordLine
         {
-            return byte.Parse(value, NumberStyles.HexNumber);
+            public readonly int DataLength;
+            public readonly string Address;
+            public readonly string RecordType;
+            public string Data;
+
+            public RecordLine(string dataLine)
+            {
+                DataLength = int.Parse(dataLine.Substring(1, 2), NumberStyles.HexNumber);
+                Address = dataLine.Substring(3, 4);
+                RecordType = dataLine.Substring(7, 2);
+                Data = dataLine.Substring(Offset, DataLength * 2);
+            }
         }
 
 
-        public static string HexLine(string address, string recordType, string data)
+        private static string GenerateHexLine(string address, string recordType, string data)
         {
             var hexValues = new List<string>();
 
             // : - StartCode
             var sb = new StringBuilder(StartCode);
-            // xx - Data byte count
+
+            // Data byte count
             var byteCount = (data.Length / 2).ToString("X");
             if (byteCount.Length % 2 != 0)
                 byteCount = "0" + byteCount;
             sb.Append(byteCount);
             hexValues.AddRange(GetByteHexValues(byteCount));
-            // xx - Address
+
+            // Address
             sb.Append(address);
             hexValues.AddRange(GetByteHexValues(address));
-            // xx - RecordType
+
+            // RecordType
             sb.Append(recordType);
             hexValues.Add(recordType);
-            // xx - Data
+
+            // Data
             sb.Append(data);
             hexValues.AddRange(GetByteHexValues(data));
 
-            byte i = 0;
+            var i = 0;
             foreach (var hexValue in hexValues)
-                i += StringToHex(hexValue);
+                i += int.Parse(hexValue, NumberStyles.HexNumber);
 
-            var checkSum = HexTwosComplement(i.ToString("X"));
-
-            if (checkSum == "F")
-                checkSum = "FF";
+            var checkSum = GetCheckSum(i.ToString("X"));
 
             return sb + checkSum;
         }
 
 
-        public static IEnumerable<string> GetByteHexValues(string data)
+        private static IEnumerable<string> GetByteHexValues(string data)
         {
             const int size = 2;
             for (var i = 0; i < data.Length; i += size)
@@ -122,45 +150,38 @@ namespace DotHex
         }
 
 
-        public static string HexTwosComplement(string hexValue)
+        private static string GetCheckSum(string hexValueString)
         {
-            var onesComplement = FlipZeroAndOne(HexToBinary(hexValue));
-
-            var twosComplement = Convert.ToInt32(onesComplement, 2) + 1;
-
-            return HexLsbValue(twosComplement);
-        }
-
-        public static string HexLsbValue(int value)
-        {
-            // var hexString = value.ToString("X");
-            // return hexString.Substring(Math.Max(0, hexString.Length - 2));
-            var bytes = BitConverter.GetBytes(value);
-            var bytesArray = BitConverter.ToString(bytes).Split('-');
-            return bytesArray[0];
-        }
-
-        public static string HexToBinary(string hexValue)
-        {
-            var charArray = hexValue.ToCharArray();
-            var sb = new StringBuilder();
+            // Hex string to Binary string
+            var charArray = hexValueString.ToCharArray();
+            var convertedBinaryString = new StringBuilder();
 
             foreach (var character in charArray)
             {
-                sb.Append(Convert.ToString(Convert.ToInt32(character.ToString(), 16), 2).PadLeft(4, '0'));
+                var digit = Convert.ToString(Convert.ToInt16(character.ToString(), 16), 2).PadLeft(4, '0');
+                convertedBinaryString.Append(digit);
             }
 
-            return sb.ToString();
-        }
-
-        public static string FlipZeroAndOne(string binaryString)
-        {
+            // Flip Zero and One
             // 0 -> _
-            var noZeroTemp = binaryString.Replace('0', '_');
+            var flippedZero = convertedBinaryString.ToString().Replace('0', '_');
             // 1 -> 0
-            var noOneTemp = noZeroTemp.Replace('1', '0');
+            var flippedOne = flippedZero.Replace('1', '0');
             // _ -> 1
-            return noOneTemp.Replace('_', '1');
+            var onesComplement = flippedOne.Replace('_', '1');
+
+            // Get Two's Complement
+            var twosComplement = Convert.ToInt32(onesComplement, 2) + 1;
+
+            var bytes = BitConverter.GetBytes(twosComplement);
+            var bytesArray = BitConverter.ToString(bytes).Split('-');
+            // Little Endian
+            var checkSum = bytesArray[0];
+
+            if (checkSum == "F")
+                checkSum = "FF";
+
+            return checkSum;
         }
     }
 }

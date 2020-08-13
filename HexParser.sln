@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HexParser", "HexParser.csproj", "{2D2F17AF-CC7E-4D26-9872-43F45FF829CA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotHex", "DotHex.csproj", "{2D2F17AF-CC7E-4D26-9872-43F45FF829CA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

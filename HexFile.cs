@@ -14,13 +14,14 @@ namespace DotHex
 
         private const string StartCode = ":";
         private const string SpecialRecAdr = "0000";
-        private const int Offset = 9;
+        private const int LineStartOffset = 9;
 
         public Hex(string hexFilename, HexFileType hexFileType = HexFileType.Hex386)
         {
             _hexFilename = hexFilename;
             _hexFileType = hexFileType;
         }
+
 
         public int FindAbsAdrLineNumber(string hexAdr)
         {
@@ -96,47 +97,37 @@ namespace DotHex
 
             public RecordLine(string dataLine)
             {
-                DataLength = int.Parse(dataLine.Substring(1, 2), NumberStyles.HexNumber);
                 Address = dataLine.Substring(3, 4);
                 RecordType = dataLine.Substring(7, 2);
-                Data = dataLine.Substring(Offset, DataLength * 2);
+                Data = dataLine.Substring(LineStartOffset, DataLength * 2);
+                DataLength = int.Parse(dataLine.Substring(1, 2), NumberStyles.HexNumber);
             }
         }
 
 
-        private static string GenerateHexLine(string address, string recordType, string data)
+        public static string GenerateHexLine(string address, string recordType, string data)
         {
-            var hexValues = new List<string>();
-
-            // : - StartCode
-            var sb = new StringBuilder(StartCode);
+            var hexValueString = new StringBuilder();
 
             // Data byte count
             var byteCount = (data.Length / 2).ToString("X");
             if (byteCount.Length % 2 != 0)
                 byteCount = "0" + byteCount;
-            sb.Append(byteCount);
-            hexValues.AddRange(GetByteHexValues(byteCount));
+            hexValueString.Append(byteCount);
 
             // Address
-            sb.Append(address);
-            hexValues.AddRange(GetByteHexValues(address));
+            hexValueString.Append(address);
 
             // RecordType
-            sb.Append(recordType);
-            hexValues.Add(recordType);
+            hexValueString.Append(recordType);
 
             // Data
-            sb.Append(data);
-            hexValues.AddRange(GetByteHexValues(data));
+            hexValueString.Append(data);
 
-            var i = 0;
-            foreach (var hexValue in hexValues)
-                i += int.Parse(hexValue, NumberStyles.HexNumber);
+            // Generate Checksum
+            var checkSum = GetChecksum(hexValueString);
 
-            var checkSum = GetCheckSum(i.ToString("X"));
-
-            return sb + checkSum;
+            return StartCode + hexValueString + checkSum;
         }
 
 
@@ -150,10 +141,16 @@ namespace DotHex
         }
 
 
-        private static string GetCheckSum(string hexValueString)
+        private static string GetChecksum(StringBuilder hexValueString)
         {
+            var hexByteValues = new List<string>(GetByteHexValues(hexValueString.ToString()));
+
+            var i = 0;
+            foreach (var byteValue in hexByteValues)
+                i += int.Parse(byteValue, NumberStyles.HexNumber);
+
             // Hex string to Binary string
-            var charArray = hexValueString.ToCharArray();
+            var charArray = i.ToString("X").ToCharArray();
             var convertedBinaryString = new StringBuilder();
 
             foreach (var character in charArray)
@@ -183,5 +180,22 @@ namespace DotHex
 
             return checkSum;
         }
+    }
+
+
+    public enum HexFileType
+    {
+        Hex386,
+        Hex86
+    }
+
+    public struct RecordType
+    {
+        public static string Data = "00";
+        public static string EndOfFile = "01";
+        public static string ExtendedSegmentAddress = "02";
+        public static string StartSegmentAddress = "03";
+        public static string ExtendedLinearAddress = "04";
+        public static string StartLinearAddress = "05";
     }
 }

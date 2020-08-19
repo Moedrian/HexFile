@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30406.217
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotHex", "DotHex.csproj", "{2D2F17AF-CC7E-4D26-9872-43F45FF829CA}"
+EndProject
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "DotHex.VB", "DotHex.VB\DotHex.VB.vbproj", "{C98EC4BF-5A75-4CFE-9577-1A4C3F9CF701}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2D2F17AF-CC7E-4D26-9872-43F45FF829CA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2D2F17AF-CC7E-4D26-9872-43F45FF829CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2D2F17AF-CC7E-4D26-9872-43F45FF829CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2D2F17AF-CC7E-4D26-9872-43F45FF829CA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C98EC4BF-5A75-4CFE-9577-1A4C3F9CF701}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C98EC4BF-5A75-4CFE-9577-1A4C3F9CF701}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C98EC4BF-5A75-4CFE-9577-1A4C3F9CF701}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C98EC4BF-5A75-4CFE-9577-1A4C3F9CF701}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BD0EC96B-6476-4952-8929-1F1AE774B0B9}
+	EndGlobalSection
+EndGlobal

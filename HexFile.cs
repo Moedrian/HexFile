@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -160,15 +159,12 @@ namespace DotHex
             }
 
             // Flip Zero and One
-            // 0 -> _
-            var flippedZero = convertedBinaryString.ToString().Replace('0', '_');
-            // 1 -> 0
-            var flippedOne = flippedZero.Replace('1', '0');
-            // _ -> 1
-            var onesComplement = flippedOne.Replace('_', '1');
+            var onesComplement = new StringBuilder();
+            foreach (var bit in convertedBinaryString.ToString())
+                onesComplement.Append(bit == '0' ? '1' : '0');
 
             // Get Two's Complement
-            var twosComplement = Convert.ToInt32(onesComplement, 2) + 1;
+            var twosComplement = Convert.ToInt32(onesComplement.ToString(), 2) + 1;
 
             var bytes = BitConverter.GetBytes(twosComplement);
             var bytesArray = BitConverter.ToString(bytes).Split('-');

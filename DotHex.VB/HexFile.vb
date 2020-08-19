@@ -3,7 +3,6 @@ Option Explicit On
 
 Imports System.Globalization
 Imports System.Text
-Imports System
 Imports System.Collections.Generic
 Imports System.Linq
 
@@ -66,16 +65,14 @@ Module HexFile
             binaryString.Append(Convert.ToString(Convert.ToInt32(character.ToString(), 16), 2).PadLeft(4, "0"c))
         Next
 
-        ' Flip Zero and One, One's Complement
-        ' 0 -> _
-        Dim noZeroTemp As String = binaryString.ToString().Replace("0", "_")
-        ' 1 -> 0
-        Dim noOneTemp As String = noZeroTemp.Replace("1", "0")
-        ' _ -> 1
-        Dim onesComplement As String = noOneTemp.Replace("_", "1")
-
+        ' Flip Zero and One -> One's Complement
+        Dim onesComplement As StringBuilder = New StringBuilder()
+        For Each bit As Char In binaryString.ToString()
+            onesComplement.Append(If(bit = "0"c, "1"c, "0"c))
+        Next
+        
         ' Two's Complement
-        Dim twosComplement As Integer = Convert.ToInt32(onesComplement, 2) + 1
+        Dim twosComplement As Integer = Convert.ToInt32(onesComplement.ToString(), 2) + 1
 
         Dim bytesArray As Byte() = BitConverter.GetBytes(twosComplement)
         Dim byteString As String() = BitConverter.ToString(bytesArray).Split("-"c)

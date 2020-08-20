@@ -6,6 +6,23 @@ using System.Text;
 
 namespace DotHex
 {
+
+    public enum HexFileType
+    {
+        Hex386,
+        Hex86
+    }
+
+    public enum RecordType
+    {
+        Data,                   // = "00"
+        EndOfFile,              // = "01"
+        ExtendedSegmentAddress, // = "02"
+        StartSegmentAddress,    // = "03"
+        ExtendedLinearAddress,  // = "04"
+        StartLinearAddress      // = "05"
+    }
+
     public class Hex
     {
         private readonly HexFileType _hexFileType;
@@ -14,6 +31,7 @@ namespace DotHex
         private const string StartCode = ":";
         private const string SpecialRecAdr = "0000";
         private const int LineStartOffset = 9;
+
 
         public Hex(string hexFilename, HexFileType hexFileType = HexFileType.Hex386)
         {
@@ -26,60 +44,50 @@ namespace DotHex
         {
             var targetLine = 1;
 
-            if (_hexFileType == HexFileType.Hex386)
+            if (hexAdr.Length == 4)
             {
-                switch (hexAdr.Length)
+                var lineCtr = 1;
+                foreach (var line in File.ReadLines(_hexFilename))
                 {
-                    case 4:
+                    var record = new RecordLine(line);
+                    if (record.Address == hexAdr)
+                        return lineCtr;
+                    lineCtr++;
+                }
+            }
+            else if (hexAdr.Length == 8)
+            {
+                var extendedAddress = hexAdr.Substring(0, 4);
+                var lineAdr = hexAdr.Substring(4, 4);
+                var extAdrLine = GenerateHexLine(SpecialRecAdr, RecordType.ExtendedLinearAddress, extendedAddress);
+
+                var extAdrLineNumber = 1;
+
+                var lineCtr = 1;
+                var foundFlag = false;
+                foreach (var line in File.ReadLines(_hexFilename))
+                {
+                    // Find the line describing line extension
+                    if (line == extAdrLine)
                     {
-                        var lineCtr = 1;
-                        foreach (var line in File.ReadLines(_hexFilename))
+                        extAdrLineNumber = lineCtr;
+                        foundFlag = true;
+                    }
+
+                    // Continue to find the address
+                    if (foundFlag)
+                    {
+                        var record = new RecordLine(line);
+                        if (record.Address == lineAdr && record.RecordType == RecordType.Data)
                         {
-                            var record = new RecordLine(line);
-                            if (record.Address == hexAdr)
-                                return lineCtr;
-                            lineCtr++;
+                            targetLine = extAdrLineNumber;
+                            break;
                         }
 
-                        break;
+                        extAdrLineNumber++;
                     }
-                    case 8:
-                    {
-                        var extendedAddress = hexAdr.Substring(0, 4);
-                        var lineAdr = hexAdr.Substring(4, 4);
-                        var extAdrLine = GenerateHexLine(SpecialRecAdr, RecordType.ExtendedLinearAddress, extendedAddress);
 
-                        var extAdrLineNumber = 1;
-
-                        var lineCtr = 1;
-                        var foundFlag = false;
-                        foreach (var line in File.ReadLines(_hexFilename))
-                        {
-                            // Find the line describing line extension
-                            if (line == extAdrLine)
-                            {
-                                extAdrLineNumber = lineCtr;
-                                foundFlag = true;
-                            }
-
-                            // Continue to find the address
-                            if (foundFlag)
-                            {
-                                var record = new RecordLine(line);
-                                if (record.Address == lineAdr && record.RecordType == RecordType.Data)
-                                {
-                                    targetLine = extAdrLineNumber;
-                                    break;
-                                }
-
-                                extAdrLineNumber++;
-                            }
-
-                            lineCtr++;
-                        }
-
-                        break;
-                    }
+                    lineCtr++;
                 }
             }
 
@@ -91,20 +99,20 @@ namespace DotHex
         {
             public readonly int DataLength;
             public readonly string Address;
-            public readonly string RecordType;
+            public readonly RecordType RecordType;
             public string Data;
 
             public RecordLine(string dataLine)
             {
                 Address = dataLine.Substring(3, 4);
-                RecordType = dataLine.Substring(7, 2);
+                RecordType = ReflectRecordType(dataLine.Substring(7, 2));
                 Data = dataLine.Substring(LineStartOffset, DataLength * 2);
                 DataLength = int.Parse(dataLine.Substring(1, 2), NumberStyles.HexNumber);
             }
         }
 
 
-        public static string GenerateHexLine(string address, string recordType, string data)
+        public static string GenerateHexLine(string address, RecordType recordType, string data)
         {
             var hexValueString = new StringBuilder();
 
@@ -118,7 +126,7 @@ namespace DotHex
             hexValueString.Append(address);
 
             // RecordType
-            hexValueString.Append(recordType);
+            hexValueString.Append(GetRecordType(recordType));
 
             // Data
             hexValueString.Append(data);
@@ -168,22 +176,51 @@ namespace DotHex
 
             return checkSum;
         }
-    }
 
 
-    public enum HexFileType
-    {
-        Hex386,
-        Hex86
-    }
+        // SPAGHETTI TIME!!
+        private static string GetRecordType(RecordType recordType)
+        {
+            switch (recordType)
+            {
+                case RecordType.Data:
+                    return "00";
+                case RecordType.EndOfFile:
+                    return "01";
+                case RecordType.ExtendedSegmentAddress:
+                    return "02";
+                case RecordType.StartSegmentAddress:
+                    return "03";
+                case RecordType.ExtendedLinearAddress:
+                    return "04";
+                case RecordType.StartLinearAddress:
+                    return "05";
+                default:
+                    return "00";
+            }
+        }
 
-    public struct RecordType
-    {
-        public static string Data = "00";
-        public static string EndOfFile = "01";
-        public static string ExtendedSegmentAddress = "02";
-        public static string StartSegmentAddress = "03";
-        public static string ExtendedLinearAddress = "04";
-        public static string StartLinearAddress = "05";
+
+        // SPAGHETTI TIME!! ENCORE!!!
+        private static RecordType ReflectRecordType(string recordType)
+        {
+            switch (recordType)
+            {
+                case "00":
+                    return RecordType.Data;
+                case "01":
+                    return RecordType.EndOfFile;
+                case "02":
+                    return RecordType.ExtendedSegmentAddress;
+                case "03":
+                    return RecordType.StartSegmentAddress;
+                case "04":
+                    return RecordType.ExtendedLinearAddress;
+                case "05":
+                    return RecordType.StartLinearAddress;
+                default:
+                    return RecordType.Data;
+            }
+        }
     }
 }

@@ -59,15 +59,11 @@ Module HexFile
         Next
 
         ' To Binary String
-        Dim charArray As Char() = i.ToString("X").ToCharArray()
-        Dim binaryString As StringBuilder = New StringBuilder()
-        For Each character As Char In charArray
-            binaryString.Append(Convert.ToString(Convert.ToInt32(character.ToString(), 16), 2).PadLeft(4, "0"c))
-        Next
+        Dim binaryString As String = Convert.ToString(i, 2)
 
         ' Flip Zero and One -> One's Complement
         Dim onesComplement As StringBuilder = New StringBuilder()
-        For Each bit As Char In binaryString.ToString()
+        For Each bit As Char In binaryString
             onesComplement.Append(If(bit = "0"c, "1"c, "0"c))
         Next
         

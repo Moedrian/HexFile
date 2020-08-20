@@ -148,19 +148,11 @@ namespace DotHex
             foreach (var byteValue in hexByteValues)
                 i += int.Parse(byteValue, NumberStyles.HexNumber);
 
-            // Hex string to Binary string
-            var charArray = i.ToString("X").ToCharArray();
-            var convertedBinaryString = new StringBuilder();
-
-            foreach (var character in charArray)
-            {
-                var digit = Convert.ToString(Convert.ToInt16(character.ToString(), 16), 2).PadLeft(4, '0');
-                convertedBinaryString.Append(digit);
-            }
+            var binaryString = Convert.ToString(i, 2);
 
             // Flip Zero and One
             var onesComplement = new StringBuilder();
-            foreach (var bit in convertedBinaryString.ToString())
+            foreach (var bit in binaryString)
                 onesComplement.Append(bit == '0' ? '1' : '0');
 
             // Get Two's Complement

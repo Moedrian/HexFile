@@ -42,35 +42,56 @@ namespace DotHex
 
         public int FindAbsAdrLineNumber(string hexAdr)
         {
-            var targetLine = 1;
+            var lineCtr = 1;
+            var candidateLines = new Dictionary<RecordLine, int>();
+
+            int GetLineNumberFromCandidates(Dictionary<RecordLine, int> candidateRecords, int intLineAddress)
+            {
+                foreach (var candidate in candidateRecords)
+                {
+                    var startAddress = int.Parse(candidate.Key.Address, NumberStyles.HexNumber);
+                    var endAddress = startAddress + candidate.Key.DataLength;
+                    if (intLineAddress >= startAddress && intLineAddress <= endAddress)
+                        return candidate.Value;
+                }
+
+                return 0;
+            }
 
             if (hexAdr.Length == 4)
             {
-                var lineCtr = 1;
+                var firstTwoDigit = hexAdr.Substring(0, 2);
+
                 foreach (var line in File.ReadLines(_hexFilename))
                 {
                     var record = new RecordLine(line);
-                    if (record.Address == hexAdr)
-                        return lineCtr;
+                    if (record.Address.Substring(0, 2) == firstTwoDigit)
+                        candidateLines.Add(record, lineCtr);
                     lineCtr++;
                 }
+
+                var intAdr = int.Parse(hexAdr, NumberStyles.HexNumber);
+
+                return GetLineNumberFromCandidates(candidateLines, intAdr);
             }
-            else if (hexAdr.Length == 8)
+            
+            if (hexAdr.Length == 8)
             {
                 var extendedAddress = hexAdr.Substring(0, 4);
+                var lineAdrFirstTwoDigits = hexAdr.Substring(4, 2);
                 var lineAdr = hexAdr.Substring(4, 4);
+
                 var extAdrLine = GenerateHexLine(SpecialRecAdr, RecordType.ExtendedLinearAddress, extendedAddress);
 
-                var extAdrLineNumber = 1;
-
-                var lineCtr = 1;
                 var foundFlag = false;
+
+                var intAdr = int.Parse(lineAdr, NumberStyles.HexNumber);
+
                 foreach (var line in File.ReadLines(_hexFilename))
                 {
                     // Find the line describing line extension
                     if (line == extAdrLine)
                     {
-                        extAdrLineNumber = lineCtr;
                         foundFlag = true;
                     }
 
@@ -78,20 +99,23 @@ namespace DotHex
                     if (foundFlag)
                     {
                         var record = new RecordLine(line);
-                        if (record.Address == lineAdr && record.RecordType == RecordType.Data)
+                        if (record.Address.Substring(0, 2) == lineAdrFirstTwoDigits &&
+                            record.RecordType == RecordType.Data)
                         {
-                            targetLine = extAdrLineNumber;
-                            break;
+                            candidateLines.Add(record, lineCtr);
+                            continue;
                         }
-
-                        extAdrLineNumber++;
+                        if (record.RecordType != RecordType.Data && line != extAdrLine)
+                            break;
                     }
 
                     lineCtr++;
                 }
+
+                return GetLineNumberFromCandidates(candidateLines, intAdr);
             }
 
-            return targetLine;
+            return 0;
         }
 
 
@@ -202,7 +226,7 @@ namespace DotHex
 
 
         // SPAGHETTI TIME!! ENCORE!!!
-        private static RecordType ReflectRecordType(string recordType)
+        public static RecordType ReflectRecordType(string recordType)
         {
             switch (recordType)
             {

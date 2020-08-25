@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace DotHex
@@ -40,23 +41,103 @@ namespace DotHex
         }
 
 
+        // Suppose the data locating in same extended part
+        public void Replace(string startPosition, string data)
+        {
+            var startPositionLineNumber = FindAbsAdrLineNumber(startPosition);
+
+            var endPositionLineNumber = 0;
+            string endPositionLineAddress;
+
+            if (startPosition.Length == 4)
+            {
+                endPositionLineAddress = Convert.ToString(int.Parse(startPosition) + data.Length / 2, 16).PadLeft(4, '0');
+                endPositionLineNumber = FindAbsAdrLineNumber(endPositionLineAddress);
+            }
+            else if (startPosition.Length == 8)
+            {
+                endPositionLineAddress = Convert.ToString(int.Parse(startPosition.Substring(4, 4)) + data.Length / 2, 16).PadLeft(4, '0');
+                var extendedAddress = startPosition.Substring(0, 4);
+                endPositionLineNumber = FindAbsAdrLineNumber(extendedAddress + endPositionLineAddress);
+            }
+
+            var modifiedLines = new List<RecordLine>();
+
+            var i = 1;
+            foreach (var line in File.ReadLines(_hexFilename))
+            {
+                if (i >= startPositionLineNumber && i <= endPositionLineNumber)
+                    modifiedLines.Add(new RecordLine(line));
+
+                if (i == endPositionLineNumber)
+                    break;
+
+                i++;
+            }
+
+            var originalData = string.Join(string.Empty, modifiedLines.Select(o => o.Data));
+            var originalHexData = GetByteHexValues(originalData).ToArray();
+            var newDataSegment = GetByteHexValues(data).ToArray();
+
+            // +1 -> start position is included
+            var modificationStart = modifiedLines.First().AddressList().IndexOf(startPosition.Length == 4 ? startPosition : startPosition.Substring(4, 4)) + 1;
+            var modificationEnd = modificationStart + newDataSegment.Length;
+
+            // Replace original data with new data segment
+            var modifiedHexData = new StringBuilder();
+            var segmentCtr = 0;
+            for (var j = 0; j < originalHexData.Length; j++)
+            {
+                if (j < modificationEnd && j >= modificationStart)
+                {
+                    modifiedHexData.Append(newDataSegment[segmentCtr]);
+                    segmentCtr++;
+                    continue;
+                }
+                modifiedHexData.Append(originalHexData[j]);
+            }
+
+            var modifiedHex = modifiedHexData.ToString();
+
+            var newRecordLines = new List<string>();
+            var offset = 0;
+            foreach (var modifiedLine in modifiedLines)
+            {
+                var newLine = GenerateHexLine(modifiedLine.Address, modifiedLine.RecordType,
+                    modifiedHex.Substring(offset, modifiedLine.DataLength * 2));
+                newRecordLines.Add(newLine);
+                offset += modifiedLine.DataLength * 2;
+            }
+
+            var copiedFile = _hexFilename + ".copy.hex";
+
+            var writeCtr = 1;
+            var newLineCtr = 0;
+            using (var sw = new StreamWriter(copiedFile))
+            {
+                foreach (var line in File.ReadLines(_hexFilename))
+                {
+                    if (writeCtr >= startPositionLineNumber && writeCtr <= endPositionLineNumber)
+                    {
+                        sw.WriteLine(newRecordLines[newLineCtr]);
+                        newLineCtr++;
+                        writeCtr++;
+                        continue;
+                    }
+                    sw.WriteLine(line);
+                    writeCtr++;
+                }
+            }
+
+            File.Delete(_hexFilename);
+            File.Move(copiedFile, _hexFilename);
+        }
+
+
         public int FindAbsAdrLineNumber(string hexAdr)
         {
             var lineCtr = 1;
             var candidateLines = new Dictionary<RecordLine, int>();
-
-            int GetLineNumberFromCandidates(Dictionary<RecordLine, int> candidateRecords, int intLineAddress)
-            {
-                foreach (var candidate in candidateRecords)
-                {
-                    var startAddress = int.Parse(candidate.Key.Address, NumberStyles.HexNumber);
-                    var endAddress = startAddress + candidate.Key.DataLength;
-                    if (intLineAddress >= startAddress && intLineAddress <= endAddress)
-                        return candidate.Value;
-                }
-
-                return 0;
-            }
 
             if (hexAdr.Length == 4)
             {
@@ -74,7 +155,7 @@ namespace DotHex
 
                 return GetLineNumberFromCandidates(candidateLines, intAdr);
             }
-            
+
             if (hexAdr.Length == 8)
             {
                 var extendedAddress = hexAdr.Substring(0, 4);
@@ -103,6 +184,7 @@ namespace DotHex
                             record.RecordType == RecordType.Data)
                         {
                             candidateLines.Add(record, lineCtr);
+                            lineCtr++;
                             continue;
                         }
                         if (record.RecordType != RecordType.Data && line != extAdrLine)
@@ -116,6 +198,19 @@ namespace DotHex
             }
 
             return 0;
+
+            int GetLineNumberFromCandidates(Dictionary<RecordLine, int> candidateRecords, int intLineAddress)
+            {
+                foreach (var candidate in candidateRecords)
+                {
+                    var startAddress = int.Parse(candidate.Key.Address, NumberStyles.HexNumber);
+                    var endAddress = startAddress + candidate.Key.DataLength;
+                    if (intLineAddress >= startAddress && intLineAddress <= endAddress)
+                        return candidate.Value;
+                }
+
+                return 0;
+            }
         }
 
 
@@ -124,14 +219,29 @@ namespace DotHex
             public readonly int DataLength;
             public readonly string Address;
             public readonly RecordType RecordType;
-            public string Data;
+            public readonly string Data;
+
 
             public RecordLine(string dataLine)
             {
                 Address = dataLine.Substring(3, 4);
                 RecordType = ReflectRecordType(dataLine.Substring(7, 2));
-                Data = dataLine.Substring(LineStartOffset, DataLength * 2);
                 DataLength = int.Parse(dataLine.Substring(1, 2), NumberStyles.HexNumber);
+                Data = dataLine.Substring(LineStartOffset, DataLength * 2);
+            }
+
+
+            public List<string> AddressList()
+            {
+                var addresses = new List<string>();
+                for (var i = 1; i <= this.DataLength; i++)
+                {
+                    var byteAddress = Convert.ToString(int.Parse(this.Address, NumberStyles.HexNumber) + i, 16)
+                        .PadLeft(4, '0');
+                    addresses.Add(byteAddress);
+                }
+
+                return addresses;
             }
         }
 

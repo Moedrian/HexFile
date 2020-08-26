@@ -14,6 +14,8 @@ namespace DotHex
         Hex86
     }
 
+
+    // Record type of a certain line
     public enum RecordType
     {
         Data,                   // = "00"
@@ -24,6 +26,10 @@ namespace DotHex
         StartLinearAddress      // = "05"
     }
 
+
+    /// <summary>
+    /// .hex File Utility
+    /// </summary>
     public class Hex
     {
         private readonly HexFileType _hexFileType;
@@ -31,9 +37,16 @@ namespace DotHex
 
         private const string StartCode = ":";
         private const string SpecialRecAdr = "0000";
+
+        // :LLAAAARR
         private const int LineStartOffset = 9;
 
 
+        /// <summary>
+        /// Default constructor of Hex
+        /// </summary>
+        /// <param name="hexFilename">Hex file to be parsed.</param>
+        /// <param name="hexFileType">Default HEX386</param>
         public Hex(string hexFilename, HexFileType hexFileType = HexFileType.Hex386)
         {
             _hexFilename = hexFilename;
@@ -41,7 +54,12 @@ namespace DotHex
         }
 
 
-        // Suppose the data locating in same extended part
+        // 
+        /// <summary>
+        /// Data replace from a certain address, supposing those data were locating in same extended part
+        /// </summary>
+        /// <param name="startPosition">Start Address of new data, length is 4 or 8, and this address is included.</param>
+        /// <param name="data">Data that represents in hex number style.</param>
         public void Replace(string startPosition, string data)
         {
             var startPositionLineNumber = FindAbsAdrLineNumber(startPosition);
@@ -77,6 +95,7 @@ namespace DotHex
 
             var originalData = string.Join(string.Empty, modifiedLines.Select(o => o.Data));
             var originalHexData = GetByteHexValues(originalData).ToArray();
+
             var newDataSegment = GetByteHexValues(data).ToArray();
 
             // +1 -> start position is included
@@ -113,9 +132,9 @@ namespace DotHex
 
             var writeCtr = 1;
             var newLineCtr = 0;
-            using (var sw = new StreamWriter(copiedFile))
+            using (var sw = new StreamWriter(_hexFilename))
             {
-                foreach (var line in File.ReadLines(_hexFilename))
+                foreach (var line in File.ReadLines(copiedFile))
                 {
                     if (writeCtr >= startPositionLineNumber && writeCtr <= endPositionLineNumber)
                     {
@@ -129,11 +148,15 @@ namespace DotHex
                 }
             }
 
-            File.Delete(_hexFilename);
-            File.Move(copiedFile, _hexFilename);
+            File.Delete(copiedFile);
         }
 
 
+        /// <summary>
+        /// Find Absolute Address Line Number in given hex file.
+        /// </summary>
+        /// <param name="hexAdr">Address in hex style, length 4 or 8</param>
+        /// <returns>Desired line number</returns>
         public int FindAbsAdrLineNumber(string hexAdr)
         {
             var lineCtr = 1;
@@ -214,38 +237,6 @@ namespace DotHex
         }
 
 
-        private class RecordLine
-        {
-            public readonly int DataLength;
-            public readonly string Address;
-            public readonly RecordType RecordType;
-            public readonly string Data;
-
-
-            public RecordLine(string dataLine)
-            {
-                Address = dataLine.Substring(3, 4);
-                RecordType = ReflectRecordType(dataLine.Substring(7, 2));
-                DataLength = int.Parse(dataLine.Substring(1, 2), NumberStyles.HexNumber);
-                Data = dataLine.Substring(LineStartOffset, DataLength * 2);
-            }
-
-
-            public List<string> AddressList()
-            {
-                var addresses = new List<string>();
-                for (var i = 1; i <= this.DataLength; i++)
-                {
-                    var byteAddress = Convert.ToString(int.Parse(this.Address, NumberStyles.HexNumber) + i, 16)
-                        .PadLeft(4, '0');
-                    addresses.Add(byteAddress);
-                }
-
-                return addresses;
-            }
-        }
-
-
         public static string GenerateHexLine(string address, RecordType recordType, string data)
         {
             var hexValueString = new StringBuilder();
@@ -269,16 +260,6 @@ namespace DotHex
             var checkSum = GetChecksum(hexValueString);
 
             return StartCode + hexValueString + checkSum;
-        }
-
-
-        private static IEnumerable<string> GetByteHexValues(string data)
-        {
-            const int size = 2;
-            for (var i = 0; i < data.Length; i += size)
-            {
-                yield return data.Substring(i, Math.Min(size, data.Length - i));
-            }
         }
 
 
@@ -309,6 +290,61 @@ namespace DotHex
                 checkSum = "FF";
 
             return checkSum;
+        }
+
+
+        public static string ToHex(string charString)
+        {
+            var charArray = charString.ToCharArray();
+            var hexStringBuilder = new StringBuilder();
+            foreach (var character in charArray)
+            {
+                hexStringBuilder.Append(Convert.ToString(Convert.ToInt16(character), 16));
+            }
+
+            return hexStringBuilder.ToString();
+        }
+
+
+        private static IEnumerable<string> GetByteHexValues(string data)
+        {
+            const int size = 2;
+            for (var i = 0; i < data.Length; i += size)
+            {
+                yield return data.Substring(i, Math.Min(size, data.Length - i));
+            }
+        }
+
+
+        private class RecordLine
+        {
+            public readonly int DataLength;
+            public readonly string Address;
+            public readonly RecordType RecordType;
+            public readonly string Data;
+
+
+            public RecordLine(string dataLine)
+            {
+                Address = dataLine.Substring(3, 4);
+                RecordType = ReflectRecordType(dataLine.Substring(7, 2));
+                DataLength = int.Parse(dataLine.Substring(1, 2), NumberStyles.HexNumber);
+                Data = dataLine.Substring(LineStartOffset, DataLength * 2);
+            }
+
+
+            public List<string> AddressList()
+            {
+                var addresses = new List<string>();
+                for (var i = 1; i <= this.DataLength; i++)
+                {
+                    var byteAddress = Convert.ToString(int.Parse(this.Address, NumberStyles.HexNumber) + i, 16)
+                        .PadLeft(4, '0');
+                    addresses.Add(byteAddress);
+                }
+
+                return addresses;
+            }
         }
 
 

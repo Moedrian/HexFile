@@ -69,12 +69,12 @@ namespace DotHex
 
             if (startPosition.Length == 4)
             {
-                endPositionLineAddress = Convert.ToString(int.Parse(startPosition) + data.Length / 2, 16).PadLeft(4, '0');
+                endPositionLineAddress = Convert.ToString(int.Parse(startPosition, NumberStyles.HexNumber) + data.Length / 2, 16).PadLeft(4, '0');
                 endPositionLineNumber = FindAbsAdrLineNumber(endPositionLineAddress);
             }
             else if (startPosition.Length == 8)
             {
-                endPositionLineAddress = Convert.ToString(int.Parse(startPosition.Substring(4, 4)) + data.Length / 2, 16).PadLeft(4, '0');
+                endPositionLineAddress = Convert.ToString(int.Parse(startPosition.Substring(4, 4), NumberStyles.HexNumber) + data.Length / 2, 16).PadLeft(4, '0');
                 var extendedAddress = startPosition.Substring(0, 4);
                 endPositionLineNumber = FindAbsAdrLineNumber(extendedAddress + endPositionLineAddress);
             }
@@ -130,6 +130,11 @@ namespace DotHex
 
             var copiedFile = _hexFilename + ".copy.hex";
 
+            if (File.Exists(copiedFile))
+                File.Delete(copiedFile);
+
+            File.Copy(_hexFilename, copiedFile);
+
             var writeCtr = 1;
             var newLineCtr = 0;
             using (var sw = new StreamWriter(_hexFilename))
@@ -159,6 +164,8 @@ namespace DotHex
         /// <returns>Desired line number</returns>
         public int FindAbsAdrLineNumber(string hexAdr)
         {
+            hexAdr = hexAdr.ToUpper();
+
             var lineCtr = 1;
             var candidateLines = new Dictionary<RecordLine, int>();
 
@@ -168,7 +175,8 @@ namespace DotHex
 
                 foreach (var line in File.ReadLines(_hexFilename))
                 {
-                    var record = new RecordLine(line);
+                    var upperLine = line.ToUpper();
+                    var record = new RecordLine(upperLine);
                     if (record.Address.Substring(0, 2) == firstTwoDigit)
                         candidateLines.Add(record, lineCtr);
                     lineCtr++;
@@ -193,8 +201,9 @@ namespace DotHex
 
                 foreach (var line in File.ReadLines(_hexFilename))
                 {
+                    var upperLine = line.ToUpper();
                     // Find the line describing line extension
-                    if (line == extAdrLine)
+                    if (upperLine == extAdrLine)
                     {
                         foundFlag = true;
                     }
@@ -202,7 +211,7 @@ namespace DotHex
                     // Continue to find the address
                     if (foundFlag)
                     {
-                        var record = new RecordLine(line);
+                        var record = new RecordLine(upperLine);
                         if (record.Address.Substring(0, 2) == lineAdrFirstTwoDigits &&
                             record.RecordType == RecordType.Data)
                         {
@@ -210,7 +219,7 @@ namespace DotHex
                             lineCtr++;
                             continue;
                         }
-                        if (record.RecordType != RecordType.Data && line != extAdrLine)
+                        if (record.RecordType != RecordType.Data && upperLine != extAdrLine)
                             break;
                     }
 
@@ -259,7 +268,7 @@ namespace DotHex
             // Generate Checksum
             var checkSum = GetChecksum(hexValueString);
 
-            return StartCode + hexValueString + checkSum;
+            return (StartCode + hexValueString + checkSum).ToUpper();
         }
 
 

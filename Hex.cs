@@ -97,8 +97,8 @@ namespace DotHex
 
             var newDataSegment = GetByteHexValues(data).ToArray();
 
-            // +1 -> start position is included
-            var modificationStart = modifiedLines.First().AddressList.IndexOf(startPosition.Length == 4 ? startPosition : startPosition.Substring(4, 4)) + 1;
+            // start position is included
+            var modificationStart = modifiedLines.First().AddressList.IndexOf(startPosition.Length == 4 ? startPosition : startPosition.Substring(4, 4));
             var modificationEnd = modificationStart + newDataSegment.Length;
 
             // Replace original data with new data segment
@@ -156,7 +156,7 @@ namespace DotHex
         }
 
 
-        public int FindAbsAdrLnNum(string hexAdr)
+        private int FindAbsAdrLnNum(string hexAdr)
         {
             hexAdr = hexAdr.ToUpper();
 
@@ -200,7 +200,7 @@ namespace DotHex
         }
 
 
-        public static string GenerateHexLine(string address, RecordType recordType, string data)
+        private static string GenerateHexLine(string address, RecordType recordType, string data)
         {
             var hexValueString = new StringBuilder();
 
@@ -226,7 +226,7 @@ namespace DotHex
         }
 
 
-        public static string GetChecksum(string hexValueString)
+        private static string GetChecksum(string hexValueString)
         {
             var hexByteValues = new List<string>(GetByteHexValues(hexValueString));
 
@@ -317,20 +317,6 @@ namespace DotHex
                 DataLength = int.Parse(dataLine.Substring(1, 2), NumberStyles.HexNumber);
                 Data = dataLine.Substring(LineStartOffset, DataLength * 2);
             }
-
-
-            // public List<string> AddressList()
-            // {
-            //     var addresses = new List<string>();
-            //     for (var i = 1; i <= this.DataLength; i++)
-            //     {
-            //         var byteAddress = Convert.ToString(int.Parse(this.Address, NumberStyles.HexNumber) + i, 16)
-            //             .PadLeft(4, '0');
-            //         addresses.Add(byteAddress);
-            //     }
-            //
-            //     return addresses;
-            // }
         }
 
 

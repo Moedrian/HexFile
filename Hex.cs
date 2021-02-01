@@ -235,20 +235,8 @@ namespace DotHex
             foreach (var byteValue in hexByteValues)
                 i += int.Parse(byteValue, NumberStyles.HexNumber);
 
-            var binaryString = Convert.ToString(i, 2);
-
-            if (i <= int.Parse("F", NumberStyles.HexNumber))
-            {
-                binaryString = binaryString.PadLeft(8, '0');
-            }
-
-            // Flip Zero and One
-            var onesComplement = new StringBuilder();
-            foreach (var bit in binaryString)
-                onesComplement.Append(bit == '0' ? '1' : '0');
-
-            // Get Two's Complement
-            var twosComplement = Convert.ToInt32(onesComplement.ToString(), 2) + 1;
+            var onesComplement = ~i;
+            var twosComplement = onesComplement + 1;
 
             var bytes = BitConverter.GetBytes(twosComplement);
             var bytesArray = BitConverter.ToString(bytes).Split('-');
@@ -320,49 +308,36 @@ namespace DotHex
         }
 
 
-        // SPAGHETTI TIME!!
+               // SPAGHETTI TIME!!
         private static string GetRecordType(RecordType recordType)
         {
-            switch (recordType)
+            return recordType switch
             {
-                case RecordType.Data:
-                    return "00";
-                case RecordType.EndOfFile:
-                    return "01";
-                case RecordType.ExtendedSegmentAddress:
-                    return "02";
-                case RecordType.StartSegmentAddress:
-                    return "03";
-                case RecordType.ExtendedLinearAddress:
-                    return "04";
-                case RecordType.StartLinearAddress:
-                    return "05";
-                default:
-                    return "00";
-            }
+                RecordType.Data => "00",
+                RecordType.EndOfFile => "01",
+                RecordType.ExtendedSegmentAddress => "02",
+                RecordType.StartSegmentAddress => "03",
+                RecordType.ExtendedLinearAddress => "04",
+                RecordType.StartLinearAddress => "05",
+                _ => "00"
+            };
         }
 
 
         // SPAGHETTI TIME!! ENCORE!!!
-        public static RecordType ReflectRecordType(string recordType)
+        private static RecordType ReflectRecordType(string recordType)
         {
-            switch (recordType)
+            return recordType switch
             {
-                case "00":
-                    return RecordType.Data;
-                case "01":
-                    return RecordType.EndOfFile;
-                case "02":
-                    return RecordType.ExtendedSegmentAddress;
-                case "03":
-                    return RecordType.StartSegmentAddress;
-                case "04":
-                    return RecordType.ExtendedLinearAddress;
-                case "05":
-                    return RecordType.StartLinearAddress;
-                default:
-                    return RecordType.Data;
-            }
+                "00" => RecordType.Data,
+                "01" => RecordType.EndOfFile,
+                "02" => RecordType.ExtendedSegmentAddress,
+                "03" => RecordType.StartSegmentAddress,
+                "04" => RecordType.ExtendedLinearAddress,
+                "05" => RecordType.StartLinearAddress,
+                _ => RecordType.Data
+            };
         }
+
     }
 }
